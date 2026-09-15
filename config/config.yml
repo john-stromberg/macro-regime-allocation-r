@@ -1,0 +1,18 @@
+data:
+  asset_returns_csv: data_raw/asset_returns.csv
+  baseline_weights_csv: data_raw/baseline_weights.csv
+  fred_series:
+    growth_proxy: INDPRO
+    inflation_proxy: CPIAUCSL
+    rates_proxy: DGS10
+
+regime:
+  lookback_months: 12
+  growth_threshold: 0
+  inflation_threshold: 0
+
+allocation:
+  growth_up_inflation_down: [0.50, 0.30, 0.20]
+  growth_up_inflation_up: [0.35, 0.25, 0.40]
+  growth_down_inflation_down: [0.30, 0.55, 0.15]
+  growth_down_inflation_up: [0.20, 0.25, 0.55]

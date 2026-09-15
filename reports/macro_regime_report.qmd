@@ -1,0 +1,31 @@
+---
+title: "Macro Regime Allocation Report"
+format: html
+execute:
+  echo: false
+---
+
+## Analytical question
+
+Do macro regimes justify allocation tilts relative to a baseline policy mix, and what is the active return profile by regime?
+
+## Method summary
+
+- Ingest FRED macro panel and CSV asset return data
+- Compute 12-month growth and inflation signals
+- Label macro regimes from threshold rules
+- Map regimes to allocation tilts
+- Compare tilted vs baseline returns and summarize by regime
+
+## Expected outputs
+
+- `data_processed/strategy_returns.csv`
+- `data_processed/performance_summary.csv`
+- `data_processed/regime_summary.csv`
+
+## Decision memo
+
+- **Question:** Should the portfolio maintain or adjust regime-based tilts?
+- **Evidence:** Active return summary and regime-conditioned performance.
+- **Interpretation:** Identify regimes with consistent edge or drawdown risk.
+- **Action:** Recalibrate thresholds or tilt matrix as needed.
