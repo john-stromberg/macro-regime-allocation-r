@@ -1,18 +1,34 @@
 data:
   asset_returns_csv: data_raw/asset_returns.csv
   baseline_weights_csv: data_raw/baseline_weights.csv
+  observation_start: "2000-01-01"
+  observation_end: null
   fred_series:
     growth_proxy: INDPRO
     inflation_proxy: CPIAUCSL
     rates_proxy: DGS10
 
 regime:
+  definition: growth_level_inflation_direction
   lookback_months: 12
-  growth_threshold: 0
+  direction_months: 3
+  persistence_months: 2
+  growth_level_threshold: 0
+  growth_direction_threshold: 0
   inflation_threshold: 0
 
+backtest:
+  signal_lag_months: 2
+  transaction_cost_bps: 10
+
 allocation:
-  growth_up_inflation_down: [0.50, 0.30, 0.20]
-  growth_up_inflation_up: [0.35, 0.25, 0.40]
-  growth_down_inflation_down: [0.30, 0.55, 0.15]
-  growth_down_inflation_up: [0.20, 0.25, 0.55]
+  growth_level_inflation_direction:
+    growth_expanding_inflation_falling: {equity: 0.50, bonds: 0.30, commodities: 0.20}
+    growth_expanding_inflation_rising: {equity: 0.35, bonds: 0.25, commodities: 0.40}
+    growth_contracting_inflation_falling: {equity: 0.30, bonds: 0.55, commodities: 0.15}
+    growth_contracting_inflation_rising: {equity: 0.20, bonds: 0.25, commodities: 0.55}
+  growth_direction_inflation_direction:
+    growth_accelerating_inflation_falling: {equity: 0.50, bonds: 0.30, commodities: 0.20}
+    growth_accelerating_inflation_rising: {equity: 0.35, bonds: 0.25, commodities: 0.40}
+    growth_decelerating_inflation_falling: {equity: 0.30, bonds: 0.55, commodities: 0.15}
+    growth_decelerating_inflation_rising: {equity: 0.20, bonds: 0.25, commodities: 0.55}

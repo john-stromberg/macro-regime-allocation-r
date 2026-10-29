@@ -1,31 +1,135 @@
 ---
 title: "Macro Regime Allocation Report"
 format: html
+params:
+  data_dir: "../data_processed"
 execute:
   echo: false
 ---
 
-## Analytical question
+```{r}
+files <- c("strategy_returns.csv", "performance_summary.csv", "regime_summary.csv",
+		   "macro_signals.csv", "run_settings.csv")
+paths <- file.path(params$data_dir, files)
+if (!all(file.exists(paths))) {
+  stop("Missing pipeline outputs. Run targets::tar_make() from the repository root first.")
+}
+strategy <- readr::read_csv(paths[1], show_col_types = FALSE)
+performance <- readr::read_csv(paths[2], show_col_types = FALSE)
+regimes <- readr::read_csv(paths[3], show_col_types = FALSE)
+signals <- readr::read_csv(paths[4], show_col_types = FALSE)
+settings <- readr::read_csv(paths[5], show_col_types = FALSE)
+if (!nrow(strategy) || nrow(performance) != 1 || nrow(settings) != 1) {
+  stop("Pipeline outputs are empty or inconsistent.")
+}
+```
 
-Do macro regimes justify allocation tilts relative to a baseline policy mix, and what is the active return profile by regime?
+## Research status
 
-## Method summary
+```{r}
+#| results: asis
+if (settings$data_vintage == "synthetic_fixture") {
+  cat("**SYNTHETIC FIXTURE: software validation only; not economic evidence.**\n\n")
+} else {
+  cat("**EXPLORATORY: latest-vintage macro data, not a point-in-time investable backtest.**\n\n")
+}
+cat(sprintf("Sample: %s through %s; %d monthly returns; %d baseline-fallback periods.\n\n",
+			performance$start_date, performance$end_date, performance$periods,
+			performance$fallback_periods))
+if (performance$periods < 60) {
+  cat("**Short sample:** fewer than five years of returns. Do not infer reliable regime efficacy from this sample.\n\n")
+}
+```
 
-- Ingest FRED macro panel and CSV asset return data
-- Compute 12-month growth and inflation signals
-- Label macro regimes from threshold rules
-- Map regimes to allocation tilts
-- Compare tilted vs baseline returns and summarize by regime
+Fixed signal lags do not remove publication-timing uncertainty or historical revisions.
+The supplied asset returns are a demonstration dataset without documented investable
+instrument provenance. The allocation matrices and trading assumptions are illustrative,
+not estimated recommendations. A longer sample alone would not establish efficacy.
 
-## Expected outputs
+## Economic definitions and run settings
 
-- `data_processed/strategy_returns.csv`
-- `data_processed/performance_summary.csv`
-- `data_processed/regime_summary.csv`
+Both definitions use the change in the inflation rate, not inflation versus deflation:
 
-## Decision memo
+- **Growth level / inflation direction:** expansion or contraction from the growth rate;
+  rising or falling inflation from the change in the inflation rate.
+- **Growth direction / inflation direction:** acceleration or deceleration from the
+  change in the growth rate; the same inflation-direction measure.
 
-- **Question:** Should the portfolio maintain or adjust regime-based tilts?
-- **Evidence:** Active return summary and regime-conditioned performance.
-- **Interpretation:** Identify regimes with consistent edge or drawdown risk.
-- **Action:** Recalibrate thresholds or tilt matrix as needed.
+Levels use the configured lookback; directions compare those rates over the configured
+direction window. Exact threshold equality uses the expanding/accelerating/rising branch.
+Regimes require consecutive confirmations. A pending switch retains the last confirmed
+regime; a missing signal resets confirmation and uses the baseline until reconfirmed.
+Rates are retained as context, not used in either allocation definition.
+
+```{r}
+as_metrics <- function(x) {
+  data.frame(metric = names(x), value = vapply(x, function(column) {
+	format(column[[1]], digits = 6)
+  }, character(1)), row.names = NULL)
+}
+knitr::kable(as_metrics(settings))
+```
+
+## Net performance
+
+Both portfolios rebalance monthly and pay costs on one-way turnover, including drift.
+Initial holdings equal the baseline. Costs are deducted before the month's asset returns.
+Annualization assumes 12 observations per year. Drawdowns are negative fractions measured
+from an initial wealth of one. `active_cum` is the difference between terminal wealths;
+`relative_cum` is their ratio minus one. Neither compounds monthly active-return differences.
+Information ratio is undefined when tracking error is zero or unavailable; no risk-free
+rate or Sharpe ratio is assumed.
+
+```{r}
+knitr::kable(as_metrics(performance))
+```
+
+```{r}
+#| fig-cap: "Net wealth, including the initial baseline holdings."
+plot_dates <- c(as.Date(format(strategy$date[1], "%Y-%m-01")) - 1, strategy$date)
+wealth <- cbind(Baseline = c(1, cumprod(1 + strategy$baseline_return)),
+				Tilted = c(1, cumprod(1 + strategy$tilted_return)))
+matplot(plot_dates, wealth, type = "l", lty = 1, col = c("steelblue", "darkorange"),
+		xlab = "Date", ylab = "Net wealth (initial = 1)")
+legend("topleft", legend = colnames(wealth), col = c("steelblue", "darkorange"), lty = 1, bty = "n")
+```
+
+```{r}
+#| fig-cap: "Net drawdowns from each portfolio's running peak."
+drawdowns <- apply(wealth, 2, function(x) x / cummax(x) - 1)
+matplot(plot_dates, drawdowns, type = "l", lty = 1, col = c("steelblue", "darkorange"),
+		xlab = "Date", ylab = "Drawdown (fraction)")
+legend("bottomleft", legend = colnames(wealth), col = c("steelblue", "darkorange"), lty = 1, bty = "n")
+```
+
+## Regime coverage and monthly net returns
+
+These descriptive summaries use the **lagged regime actually applied** to each return.
+Sparse or missing regimes are not evidence of robustness. Volatility is undefined for
+single-observation groups; confidence intervals are not estimated in this foundation.
+
+```{r}
+knitr::kable(regimes, digits = 5)
+```
+
+## Signal diagnostics
+
+The following observations show the latest 12 signal months dated no later than the
+last return month. Because allocations are lagged, the newest signals may not yet have
+been applied. Raw and confirmed labels make confirmation delays visible. The exported
+`macro_signals.csv` contains the full history, inputs for both economic definitions,
+and labels for the selected definition only.
+
+```{r}
+diagnostics <- signals[signals$date <= max(strategy$date),
+  c("date", "growth_level", "growth_direction", "inflation_level", "inflation_direction",
+	"raw_regime", "regime")]
+knitr::kable(tail(diagnostics, 12), digits = 5)
+```
+
+## Next research steps
+
+Document investable asset exposures and total-return sources; extend the sample across
+cycles; adopt point-in-time vintages and release dates; evaluate costs and thresholds
+out of sample. Broader indicator composites and financial-conditions overlays should
+be tested incrementally rather than assumed to improve the model.
